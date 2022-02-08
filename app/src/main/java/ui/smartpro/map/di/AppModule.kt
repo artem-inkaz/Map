@@ -2,10 +2,10 @@ package ui.smartpro.map.di
 
 import org.koin.android.ext.koin.androidApplication
 import org.koin.androidx.viewmodel.dsl.viewModel
-import org.koin.core.component.KoinApiExtension
 import org.koin.dsl.module
+import ui.smartpro.map.ui.MarkerViewModel
 
-@OptIn(KoinApiExtension::class)
 val appModule = module {
-
+    //vm
+    viewModel { MarkerViewModel(androidApplication()) }
 }

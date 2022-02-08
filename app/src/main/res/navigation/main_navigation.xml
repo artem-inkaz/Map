@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <navigation xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/main_navigation">
+    android:id="@+id/main_navigation"
+    app:startDestination="@id/mapsFragment">
 
+    <fragment
+        android:id="@+id/mapsFragment"
+        android:name="ui.smartpro.map.ui.MapsFragment"
+        android:label="MapsFragment" />
+    <fragment
+        android:id="@+id/detailMarkerFragment"
+        android:name="ui.smartpro.map.ui.detail.DetailMarkerFragment"
+        android:label="DetailMarkerFragment" />
 </navigation>

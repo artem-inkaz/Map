@@ -1,0 +1,11 @@
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item android:state_enabled="true"> <!--Кнопка статичная: -->
+        <shape android:shape="rectangle">
+            <solid android:color="@color/salat" />
+            <corners android:radius="24dp" />
+
+        </shape>
+    </item>
+
+</selector>

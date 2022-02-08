@@ -1,7 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">Map</string>
-    <string name="menu_home">Главная</string>
-    <string name="menu_detail">Список</string>
+    <string name="menu_home">Home</string>
+    <string name="menu_detail">List</string>
     <string name="put_latitude">Введите долготу</string>
     <string name="put_longitude">Введите широту</string>
     <string name="put_adress">Введите адрес</string>
