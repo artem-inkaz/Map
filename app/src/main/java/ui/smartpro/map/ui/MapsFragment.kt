@@ -5,10 +5,12 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.location.Address
 import android.location.Geocoder
 import android.location.Location
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -23,16 +25,20 @@ import com.google.android.gms.maps.model.*
 import com.google.android.gms.tasks.Task
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collect
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import ui.smartpro.map.R
 import ui.smartpro.map.base.BaseFragment
+import ui.smartpro.map.data.model.Markers
 import ui.smartpro.map.databinding.FragmentMapsBinding
+import ui.smartpro.map.utils.DataConstants.Companion.markerList
 import java.io.IOException
 import java.util.*
 
 class MapsFragment(override val layoutId: Int = R.layout.fragment_maps) :
-    BaseFragment<FragmentMapsBinding>() {
+    BaseFragment<FragmentMapsBinding>(), GoogleMap.OnMarkerClickListener {
 
     companion object {
         var PERMISSIONS = arrayOf(
@@ -51,14 +57,13 @@ class MapsFragment(override val layoutId: Int = R.layout.fragment_maps) :
     private var marker: Marker? = null
     private var circle: Circle? = null
     private var radiusGeofence:Int? = 20
+    private var map: GoogleMap? = null
+//    val options: MarkerOptions = MarkerOptions()
     private val vm by viewModel<MarkerViewModel>()
+
     private val callback = OnMapReadyCallback { googleMap ->
         thisMap = googleMap
-        val sydney = LatLng(-34.0, 151.0)
-//        googleMap.addMarker(MarkerOptions().position(sydney).title("Marker in Sydney"))
-//        googleMap.moveCamera(CameraUpdateFactory.newLatLng(sydney))
-        activateMyLocation(thisMap) // Сетим появление штатной кнопки для показа моего места
-
+        activateMyLocation(thisMap)
     }
 
     private val permReqLauncher =
@@ -69,19 +74,16 @@ class MapsFragment(override val layoutId: Int = R.layout.fragment_maps) :
             if (granted) {
                 getMyCurrentLocation()
                 getMapData()
-                initSearchByAddress()
             } else {
                 checkGPSPermission()
             }
         }
 
-
-
     override fun initViews() {
         super.initViews()
-
         client = activity?.let { it1 -> LocationServices.getFusedLocationProviderClient(it1) }!!
         checkGPSPermission() // Запрашиваем все разрешения
+        vm.getListMarker()
     }
 
     private fun activateMyLocation(googleMap: GoogleMap) {
@@ -107,8 +109,6 @@ class MapsFragment(override val layoutId: Int = R.layout.fragment_maps) :
 
                     getMyCurrentLocation()
                     getMapData()
-                    initSearchByAddress()
-
                 }
                 // Метод для нас, чтобы знали когда необходимы пояснения показывать перед запросом:
                 shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION) -> {
@@ -137,15 +137,84 @@ class MapsFragment(override val layoutId: Int = R.layout.fragment_maps) :
         val mapFragment = childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment?
         mapFragment?.getMapAsync(callback)
         addMarkerToMap(mapFragment)
+        setMarkers(mapFragment)
+    }
+
+    private fun setMarkers(mapFragment: SupportMapFragment?){
+        mapFragment?.getMapAsync { googleMap ->
+
+            var i = 0
+            doInScopeResume {
+                vm.setMarkerList.collect { setMarkerList ->
+                    if (setMarkerList?.size != 0 && setMarkerList != null) {
+                        for (marker in setMarkerList) {
+                            i += 1
+                            val markerOptions = MarkerOptions()
+                            val googleMarker: Markers = marker
+                            val placeName = googleMarker.adress
+                            currentMarkerLocation = googleMarker.latitude?.let { it1 ->
+                                googleMarker.longitude?.let { it2 ->
+                                    LatLng(
+                                        it1,
+                                        it2
+                                    )
+                                }
+                            }
+                                currentMarkerLocation?.let { markerLocation ->
+                                    markerOptions
+                                        .position(markerLocation)
+                                        .draggable(true)
+                                        .snippet("${marker.id}")
+                                        .title("$placeName")
+                                        .snippet("$currentMarkerLocation")
+                                    markerOptions.icon(
+                                        BitmapDescriptorFactory.defaultMarker(
+                                            BitmapDescriptorFactory.HUE_RED
+                                        )
+                                    )
+                                    // добавляем радиус к маркеру
+                                    circle = radiusGeofence?.let { radius->
+                                        CircleOptions()
+                                            .center(currentMarkerLocation!!)
+                                            .radius(radius.toDouble())
+                                            .strokeColor(
+                                                ContextCompat.getColor(
+                                                    context as Activity,
+                                                    R.color.blueDark
+                                                )
+                                            )
+                                            .zIndex(2f)
+                                            .fillColor(ContextCompat.getColor(context as Activity, R.color.blue))
+                                    }?.let { it1 ->
+                                        googleMap.addCircle(
+                                            it1
+                                        )
+                                    }
+                                    this@MapsFragment.marker = thisMap.addMarker(markerOptions)
+//                                    this@MapsFragment.marker?.showInfoWindow()
+                                    val pos = CameraPosition.fromLatLngZoom(markerLocation, 17f)
+                                    thisMap.moveCamera(CameraUpdateFactory.newCameraPosition(pos))
+                                    thisMap.moveCamera(
+                                        CameraUpdateFactory.newLatLng(
+                                            markerLocation
+                                        )
+                                    )
+                                }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private fun addMarkerToMap(mapFragment: SupportMapFragment?){
         mapFragment?.getMapAsync { googleMap ->
+
             googleMap.setOnMapClickListener {
                 val currentLatLng = LatLng(it.latitude, it.longitude)
                 currentMarkerLocation = currentLatLng
-                getAddressAsync(context as Activity, currentLatLng)
-                // добавляем радиус геозоны
+              getAddressAsync(context as Activity, currentLatLng)
+                // добавляем радиус к маркеру
                 circle = radiusGeofence?.let { radius->
                     CircleOptions()
                         .center(currentLatLng)
@@ -164,30 +233,26 @@ class MapsFragment(override val layoutId: Int = R.layout.fragment_maps) :
                     )
                 }
                 googleMap.snapshot { }
-                // добавляем на карту маркер геозоны
-                marker = googleMap.addMarker(
-                    MarkerOptions()
-                        .position(currentLatLng)
-                        .title("Я тут")
-                        .icon(BitmapDescriptorFactory.defaultMarker())
-                )
-                marker?.showInfoWindow()
+
+                doInScopeResume {
+                    vm.stateInitial.collect { stateInitial ->
+                        if (stateInitial) {
+                            // добавляем на карту маркер геозоны
+                            marker = googleMap.addMarker(
+                                MarkerOptions()
+                                    .position(currentLatLng)
+                                    .draggable(true)
+                                    .title("Я тут")
+                                    .snippet("$currentLatLng")
+                                    .snippet("${getAddressToWindow(context as Activity, currentLatLng)}")
+                                    .icon(BitmapDescriptorFactory.defaultMarker())
+                            )
+                            marker?.showInfoWindow()
+                        }
+                    }
+                }
             }
         }
-    }
-
-    private fun initSearchByAddress() {
-//        val geoCoder = Geocoder(context, Locale.getDefault())
-//        Thread {
-//            try {
-//                val addresses = geoCoder.getFromLocationName(place, 1)
-//                if (addresses.size > 0) {
-//                    goToAddress(addresses, it)
-//                }
-//            } catch (e: IOException) {
-//                e.printStackTrace()
-//            }
-//        }.start()
     }
 
     private fun getAddressAsync(
@@ -202,50 +267,29 @@ class MapsFragment(override val layoutId: Int = R.layout.fragment_maps) :
                 1
             )
             val describeAdress=addresses[0].thoroughfare+", "+ addresses[0].featureName
-            vm.addCurrentMarker(location, describeAdress)
+            vm.addMarkerToMap(location, describeAdress)
         } catch (e: IOException) {
             e.printStackTrace()
         }
     }
 
-    private fun goToAddress(
-        addresses: MutableList<Address>,
-        view: View
-    ) {
-
-        val location = LatLng(
-            addresses[0].latitude,
-            addresses[0].longitude
-        )
-
-        val geoCoder = Geocoder(context, Locale.getDefault())
-        val myPlaceByLocation: List<Address> =
-            geoCoder.getFromLocation(location.latitude, location.longitude, 1)
-        val myAddress = myPlaceByLocation[0].getAddressLine(0)
-
-        val bundle = Bundle()
-        bundle.putString("Location by Search", myAddress)
-        view.post {
-            setMarker(location, myAddress)
-            thisMap.moveCamera(
-                CameraUpdateFactory.newLatLngZoom(
-                    location,
-                    17f
-                )
+    private fun getAddressToWindow(
+        context: Context,
+        location: LatLng
+    ) : String {
+        val geoCoder = Geocoder(context)
+        try {
+            val addresses = geoCoder.getFromLocation(
+                location.latitude,
+                location.longitude,
+                1
             )
+            val describeAdress=addresses[0].thoroughfare+", "+ addresses[0].featureName
+            return describeAdress
+        } catch (e: IOException) {
+            e.printStackTrace()
+            return "Не известно"
         }
-    }
-
-    private fun setMarker(
-        location: LatLng,
-        searchText: String
-    ): Marker? {
-        return thisMap.addMarker(
-            MarkerOptions()
-                .position(location)
-                .title(searchText)
-                .icon(BitmapDescriptorFactory.defaultMarker())
-        )
     }
 
     @SuppressLint("MissingPermission")
@@ -274,19 +318,77 @@ class MapsFragment(override val layoutId: Int = R.layout.fragment_maps) :
             location.latitude,
             location.longitude
         )
-        val options: MarkerOptions = MarkerOptions()
-            .position(loc)
-            .title("Я Тут!")
-            .icon(BitmapDescriptorFactory.defaultMarker())
-
-        thisMap.animateCamera(CameraUpdateFactory.newLatLngZoom(loc, 17f))
-        thisMap.addMarker(options)
-
         val geoCoder = Geocoder(context, Locale.getDefault())
         val myPlaceByLocation: List<Address> =
             geoCoder.getFromLocation(location.latitude, location.longitude, 1)
-        val myAddress = myPlaceByLocation[0].getAddressLine(0)
-        val bundle = Bundle()
-        bundle.putString("Location by Search", myAddress)
+        val myAddress = myPlaceByLocation[0].thoroughfare+", "+ myPlaceByLocation[0].featureName
+        vm.addMarkerToMap(loc, myAddress)
+        val options: MarkerOptions = MarkerOptions()
+            .position(loc)
+            .draggable(true)
+//            .snippet("$it")
+            .title("Я Тут!")
+            .snippet("$loc")
+            .snippet("$myAddress")
+            .icon(BitmapDescriptorFactory.defaultMarker())
+
+        doInScopeResume {
+            vm.stateInitial.collect { stateInitial ->
+                if (stateInitial) {
+                    thisMap.animateCamera(CameraUpdateFactory.newLatLngZoom(loc, 17f))
+                    marker = thisMap.addMarker(options)
+                    marker?.showInfoWindow()
+                }
+            }
+        }
+    }
+
+//    private fun dragMarker(id:Long, thisMap: GoogleMap){
+//
+//        thisMap.setOnMarkerDragListener(object : GoogleMap.OnMarkerDragListener {
+//            override fun onMarkerDragStart(arg0: Marker) {
+//                circle?.remove()
+//            }
+//
+//            override fun onMarkerDragEnd(arg0: Marker) {
+//                val message = arg0.position.latitude.toString() + "" + arg0.position.longitude.toString()
+//                currentMarkerLocation = LatLng(arg0.position.latitude,arg0.position.longitude)
+//                circle = radiusGeofence?.let { radius->
+//                    CircleOptions()
+//                        .center(currentMarkerLocation!!)
+//                        .radius(radius.toDouble())
+//                        .strokeColor(
+//                            ContextCompat.getColor(
+//                                context as Activity,
+//                                R.color.salat
+//                            )
+//                        )
+//                        .zIndex(2f)
+//                        .fillColor(ContextCompat.getColor(context as Activity, R.color.blue))
+//                }?.let { it1 ->
+//                    thisMap.addCircle(
+//                        it1
+//                    )
+//                }
+//                val geoCoder = Geocoder(context, Locale.getDefault())
+//                val myPlaceByLocation: List<Address> =
+//                    geoCoder.getFromLocation(arg0.position.latitude, arg0.position.longitude, 1)
+//                val myNewAddress = myPlaceByLocation[0].thoroughfare+", "+ myPlaceByLocation[0].featureName
+//                vm.editMarkerToMap(id, myNewAddress,arg0.position.latitude, arg0.position.longitude)
+//                thisMap.animateCamera(CameraUpdateFactory.newLatLngZoom(arg0.position, 17f))
+//
+//                Log.d(TAG + "_END", message)
+//            }
+//
+//            override fun onMarkerDrag(arg0: Marker) {
+//                val message = arg0!!.position.latitude.toString() + "" + arg0.position.longitude.toString()
+//                Log.d(TAG + "_DRAG", message)
+//            }
+//        })
+//    }
+
+    override fun onMarkerClick(marker: Marker): Boolean {
+        marker.remove()
+        return false
     }
 }

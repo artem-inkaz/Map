@@ -66,7 +66,6 @@ abstract class BaseFragment<Binding: ViewBinding> : Fragment(){
             }
         }
     }
-
     //показывает тост с текстом. Принимает String. Ничего не возвращает.
     fun showMessage (message: String){
         Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()

@@ -44,9 +44,10 @@
         android:layout_marginStart="16dp"
         android:textColor="@color/white"
         android:textSize="16sp"
+
         app:layout_constraintTop_toBottomOf="@id/marker"
         app:layout_constraintStart_toStartOf="parent"
-        tools:text="Долгота" />
+        android:text="Долгота" />
 
     <com.google.android.material.textfield.TextInputEditText
         android:id="@+id/latitude_edit"
@@ -77,7 +78,7 @@
         android:layout_marginStart="16dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/latitude_edit"
-        tools:text="Широта" />
+        android:text="Широта" />
 
     <com.google.android.material.textfield.TextInputEditText
         android:id="@+id/longitude_edit"
@@ -109,7 +110,7 @@
         android:textSize="16sp"
         app:layout_constraintTop_toBottomOf="@id/longitude_edit"
         app:layout_constraintStart_toStartOf="parent"
-        tools:text="Адрес" />
+        android:text="Адрес" />
 
     <com.google.android.material.textfield.TextInputEditText
         android:id="@+id/adress_edit"

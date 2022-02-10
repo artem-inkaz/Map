@@ -11,5 +11,13 @@
     <fragment
         android:id="@+id/detailMarkerFragment"
         android:name="ui.smartpro.map.ui.detail.DetailMarkerFragment"
-        android:label="DetailMarkerFragment" />
+        android:label="DetailMarkerFragment" >
+        <action
+            android:id="@+id/action_detailMarkerFragment_to_editMarkerFragment"
+            app:destination="@id/editMarkerFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/editMarkerFragment"
+        android:name="ui.smartpro.map.ui.detail.EditMarkerFragment"
+        android:label="EditMarkerFragment" />
 </navigation>
